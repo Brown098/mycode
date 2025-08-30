@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Flask 前后端数据传递示例</title>
+    <style>
+        /* 简单样式，提升页面美观度 */
+        .container {
+            width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #eeeeee;
+            border-radius: 8px;
+        }
+
+        form div {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            display: inline-block;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: 50%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            padding: 8px 20px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>用户信息提交</h2>
+        <!-- 表单：action 指向后端接收路由，method 为 POST -->
+        <form action="/submit" method="POST">
+            <!-- 用户名输入框 -->
+            <div>
+                <label for="username">用户名：</label>
+                <input type="text" id="username" name="username" required>
+                <!-- name 属性必须与后端 request.form.get('xxx') 中的 xxx 一致 -->
+            </div>
+            <!-- 年龄输入框 -->
+            <div>
+                <label for="age">年龄：</label>
+                <input type="number" id="age" name="age" min="0" max="150" required>
+            </div>
+
+            <!-- 爱好多选框 -->
+            <div>
+                <label>爱好（可多选）：</label>
+                <input type="checkbox" name="hobby" value="阅读"> 阅读
+                <input type="checkbox" name="hobby" value="运动"> 运动
+                <input type="checkbox" name="hobby" value="编程"> 编程
+                <input type="checkbox" name="hobby" value="音乐"> 音乐
+            </div>
+
+            <!-- 提交按钮 -->
+            <button type="submit">提交数据到后端</button>
+        </form>
+    </div>
+</body>
+
+</html>
