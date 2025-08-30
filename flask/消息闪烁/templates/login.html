@@ -1,0 +1,23 @@
+{% extends "layout.html" %} <!-- 继承基础布局模板 -->
+
+{% block content %}
+<h1>Login</h1>
+
+<!-- 显示登录错误信息（如果有） -->
+{% if error %}
+<div class="flash-message error">{{ error }}</div>
+{% endif %}
+
+<!-- 登录表单 -->
+<form method="post">
+    <div>
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required>
+    </div>
+    <div>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+    </div>
+    <button type="submit">Login</button>
+</form>
+{% endblock %}

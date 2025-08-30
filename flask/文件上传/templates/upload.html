@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>File Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .upload-form {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        input[type="file"] {
+            margin: 10px 0;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Upload File</h1>
+    <div class="upload-form">
+        <form action="/uploader" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Select file to upload:</label><br>
+                <input type="file" name="file" id="file">
+            </div>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+</body>
+
+</html>

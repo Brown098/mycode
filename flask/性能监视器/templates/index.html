@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>服务器监控面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+
+    <!-- Tailwind配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        success: '#00B42A',
+                        warning: '#FF7D00',
+                        danger: '#F53F3F',
+                        dark: '#1D2129',
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .card-shadow {
+                box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            }
+            .animate-pulse-slow {
+                animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .progress-bar {
+            transition: width 0.5s ease-in-out;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 font-inter text-dark">
+    <div class="min-h-screen flex flex-col">
+        <!-- 顶部导航栏 -->
+        <header class="bg-white shadow-sm sticky top-0 z-50">
+            <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
+                    <i class="fa fa-server text-primary text-2xl"></i>
+                    <h1 class="text-xl font-bold text-dark">服务器监控面板</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="current-time" class="text-sm text-gray-600"></span>
+                    <button id="refresh-btn" class="p-2 rounded-full hover:bg-gray-100 transition-colors">
+                        <i class="fa fa-refresh text-gray-600"></i>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区 -->
+        <main class="flex-grow container mx-auto px-4 py-6">
+            <!-- 状态卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6 mb-8">
+                <!-- CPU使用率 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">CPU使用率</h3>
+                            <p class="text-3xl font-bold" id="cpu-value">0%</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i class="fa fa-microchip text-primary text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="cpu-bar" class="progress-bar bg-primary h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 内存使用率 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">内存使用率</h3>
+                            <p class="text-3xl font-bold" id="memory-value">0%</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <i class="fa fa-memory text-success text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="memory-bar" class="progress-bar bg-success h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 磁盘使用率 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">磁盘使用率</h3>
+                            <p class="text-3xl font-bold" id="disk-value">0%</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center">
+                            <i class="fa fa-hdd-o text-warning text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="disk-bar" class="progress-bar bg-warning h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- 网络流量 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">网络流量</h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xl font-bold" id="network-value">0 KB/s</span>
+                                <span class="text-xs text-gray-500">
+                                    <i class="fa fa-upload text-success"></i>
+                                    <i class="fa fa-download text-primary"></i>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center">
+                            <i class="fa fa-wifi text-purple-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2 mt-2">
+                        <div class="flex-1">
+                            <span class="text-xs text-gray-500">上传</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div id="upload-bar" class="progress-bar bg-success h-2 rounded-full" style="width: 0%">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-xs text-gray-500">下载</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div id="download-bar" class="progress-bar bg-primary h-2 rounded-full"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CPU频率 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">CPU频率</h3>
+                            <p class="text-3xl font-bold" id="cpu-freq-value">0 MHz</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <i class="fa fa-tachometer text-indigo-600 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="cpu-freq-bar" class="progress-bar bg-indigo-600 h-2.5 rounded-full" style="width: 0%">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 磁盘IO -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">磁盘IO速度</h3>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-xl font-bold" id="disk-io-value">0 MB/s</span>
+                            </div>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-red-100 flex items-center justify-center">
+                            <i class="fa fa-database text-red-500 text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="flex space-x-2 mt-2">
+                        <div class="flex-1">
+                            <span class="text-xs text-gray-500">读取</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div id="disk-read-bar" class="progress-bar bg-success h-2 rounded-full"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="flex-1">
+                            <span class="text-xs text-gray-500">写入</span>
+                            <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                                <div id="disk-write-bar" class="progress-bar bg-primary h-2 rounded-full"
+                                    style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 流量统计卡片 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                <!-- 上传总流量 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">上传总流量</h3>
+                            <p class="text-3xl font-bold" id="total-upload-value">0 GB</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center">
+                            <i class="fa fa-cloud-upload text-success text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="total-upload-bar" class="progress-bar bg-success h-2.5 rounded-full"
+                                style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            流量使用比例: <span id="upload-ratio">0%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 下载总流量 -->
+                <div
+                    class="bg-white rounded-xl p-6 card-shadow transform hover:scale-[1.02] transition-all duration-300">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="text-sm font-medium text-gray-500">下载总流量</h3>
+                            <p class="text-3xl font-bold" id="total-download-value">0 GB</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                            <i class="fa fa-cloud-download text-primary text-xl"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div id="total-download-bar" class="progress-bar bg-primary h-2.5 rounded-full"
+                                style="width: 0%"></div>
+                        </div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            流量使用比例: <span id="download-ratio">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 图表区域 -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 资源使用趋势图 -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-4">资源使用趋势</h3>
+                    <div class="h-80">
+                        <canvas id="resource-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- 网络流量图 -->
+                <div class="bg-white rounded-xl p-6 card-shadow">
+                    <h3 class="text-lg font-semibold mb-4">网络流量趋势</h3>
+                    <div class="h-80">
+                        <canvas id="network-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="bg-white py-4 border-t border-gray-200">
+            <div class="container mx-auto px-4 text-center text-gray-500 text-sm">
+                <p>服务器监控面板 &copy; 2025 | 更新时间: <span id="update-time">--</span></p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // 初始化图表
+        const resourceChart = new Chart(
+            document.getElementById('resource-chart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [
+                        {
+                            label: 'CPU使用率 (%)',
+                            data: Array(10).fill(0),
+                            borderColor: '#165DFF',
+                            backgroundColor: 'rgba(22, 93, 255, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: '内存使用率 (%)',
+                            data: Array(10).fill(0),
+                            borderColor: '#00B42A',
+                            backgroundColor: 'rgba(0, 180, 42, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: '磁盘使用率 (%)',
+                            data: Array(10).fill(0),
+                            borderColor: '#FF7D00',
+                            backgroundColor: 'rgba(255, 125, 0, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0,
+                            max: 100,
+                            ticks: {
+                                callback: function (value) {
+                                    return value + '%';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    animation: {
+                        duration: 500
+                    }
+                }
+            }
+        );
+
+        const networkChart = new Chart(
+            document.getElementById('network-chart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(10).fill(''),
+                    datasets: [
+                        {
+                            label: '上传 (KB/s)',
+                            data: Array(10).fill(0),
+                            borderColor: '#00B42A',
+                            backgroundColor: 'rgba(0, 180, 42, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        },
+                        {
+                            label: '下载 (KB/s)',
+                            data: Array(10).fill(0),
+                            borderColor: '#165DFF',
+                            backgroundColor: 'rgba(22, 93, 255, 0.1)',
+                            tension: 0.3,
+                            fill: true
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            ticks: {
+                                callback: function (value) {
+                                    if (value >= 1024) {
+                                        return (value / 1024).toFixed(1) + ' MB/s';
+                                    }
+                                    return value + ' KB/s';
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    animation: {
+                        duration: 500
+                    }
+                }
+            }
+        );
+
+        // 格式化字节数
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // 计算百分比（用于流量比例显示）
+        function calculatePercentage(value, max) {
+            return Math.min(100, Math.max(0, (value / max) * 100));
+        }
+
+        // 上一次的网络数据，用于计算速率
+        let lastBytesSent = 0;
+        let lastBytesRecv = 0;
+        let lastUpdateTime = new Date();
+
+        // 流量使用基准（1TB）
+        const trafficBase = 1024 * 1024 * 1024 * 1024; // 1TB
+
+        // 更新当前时间
+        function updateCurrentTime() {
+            const now = new Date();
+            document.getElementById('current-time').textContent = now.toLocaleTimeString();
+        }
+
+        setInterval(updateCurrentTime, 1000);
+        updateCurrentTime();
+
+        // 刷新数据
+        function fetchMetrics() {
+            fetch('http://216.144.235.169:6091/metrics')
+                .then(response => response.json())
+                .then(data => {
+                    // 更新卡片数据
+                    document.getElementById('cpu-value').textContent = `${data.cpu_percent.toFixed(1)}%`;
+                    document.getElementById('memory-value').textContent = `${data.memory_percent.toFixed(1)}%`;
+                    document.getElementById('disk-value').textContent = `${data.disk_percent.toFixed(1)}%`;
+
+                    // 设置进度条
+                    document.getElementById('cpu-bar').style.width = `${data.cpu_percent}%`;
+                    document.getElementById('memory-bar').style.width = `${data.memory_percent}%`;
+                    document.getElementById('disk-bar').style.width = `${data.disk_percent}%`;
+
+                    // 计算网络速率
+                    const now = new Date();
+                    const elapsedSeconds = (now - lastUpdateTime) / 1000;
+
+                    const sentRate = (data.bytes_sent - lastBytesSent) / elapsedSeconds / 1024; // KB/s
+                    const recvRate = (data.bytes_recv - lastBytesRecv) / elapsedSeconds / 1024; // KB/s
+
+                    // 更新网络数据
+                    document.getElementById('network-value').textContent =
+                        `${sentRate.toFixed(1)}↑ ${recvRate.toFixed(1)}↓ KB/s`;
+
+                    // 设置网络进度条（最大值设为1024KB/s）
+                    document.getElementById('upload-bar').style.width = `${Math.min(sentRate / 10, 100)}%`;
+                    document.getElementById('download-bar').style.width = `${Math.min(recvRate / 10, 100)}%`;
+
+                    // 更新CPU频率
+                    document.getElementById('cpu-freq-value').textContent = `${data.cpu_freq.toFixed(0)} MHz`;
+                    // CPU频率进度条（最大频率为5000MHz）
+                    const cpuFreqPercent = Math.min(100, (data.cpu_freq / 5000) * 100);
+                    document.getElementById('cpu-freq-bar').style.width = `${cpuFreqPercent}%`;
+
+                    // 更新磁盘IO
+                    const diskReadMB = data.disk_read_speed / (1024 * 1024);
+                    const diskWriteMB = data.disk_write_speed / (1024 * 1024);
+                    document.getElementById('disk-io-value').textContent =
+                        `${diskReadMB.toFixed(1)}↑ ${diskWriteMB.toFixed(1)}↓ MB/s`;
+
+                    // 磁盘IO进度条（最大值设为200MB/s）
+                    document.getElementById('disk-read-bar').style.width = `${Math.min(diskReadMB / 2, 100)}%`;
+                    document.getElementById('disk-write-bar').style.width = `${Math.min(diskWriteMB / 2, 100)}%`;
+
+                    // 更新总流量
+                    const totalUploadGB = data.bytes_sent / (1024 * 1024 * 1024);
+                    const totalDownloadGB = data.bytes_recv / (1024 * 1024 * 1024);
+
+                    document.getElementById('total-upload-value').textContent = `${totalUploadGB.toFixed(2)} GB`;
+                    document.getElementById('total-download-value').textContent = `${totalDownloadGB.toFixed(2)} GB`;
+
+                    // 计算流量使用比例（基于1TB基准）
+                    const uploadPercent = calculatePercentage(data.bytes_sent, trafficBase);
+                    const downloadPercent = calculatePercentage(data.bytes_recv, trafficBase);
+
+                    document.getElementById('total-upload-bar').style.width = `${uploadPercent}%`;
+                    document.getElementById('total-download-bar').style.width = `${downloadPercent}%`;
+                    document.getElementById('upload-ratio').textContent = `${uploadPercent.toFixed(1)}%`;
+                    document.getElementById('download-ratio').textContent = `${downloadPercent.toFixed(1)}%`;
+
+                    // 更新图表数据
+                    resourceChart.data.datasets[0].data.push(data.cpu_percent);
+                    resourceChart.data.datasets[1].data.push(data.memory_percent);
+                    resourceChart.data.datasets[2].data.push(data.disk_percent);
+
+                    networkChart.data.datasets[0].data.push(sentRate);
+                    networkChart.data.datasets[1].data.push(recvRate);
+
+                    // 保持图表数据点数量固定
+                    if (resourceChart.data.datasets[0].data.length > 10) {
+                        resourceChart.data.datasets.forEach(dataset => {
+                            dataset.data.shift();
+                        });
+
+                        networkChart.data.datasets.forEach(dataset => {
+                            dataset.data.shift();
+                        });
+
+                        // 更新时间标签
+                        const timeLabels = resourceChart.data.labels;
+                        const now = new Date();
+                        timeLabels.push(now.toTimeString().substring(0, 8));
+                        timeLabels.shift();
+                    }
+
+                    resourceChart.update();
+                    networkChart.update();
+
+                    // 更新页脚时间
+                    document.getElementById('update-time').textContent = data.timestamp;
+
+                    // 保存当前网络数据用于下一次计算
+                    lastBytesSent = data.bytes_sent;
+                    lastBytesRecv = data.bytes_recv;
+                    lastUpdateTime = now;
+                })
+                .catch(error => {
+                    console.error('获取数据失败:', error);
+                    document.getElementById('update-time').textContent = '获取数据失败';
+                });
+        }
+
+        // 初始加载和定时刷新
+        fetchMetrics();
+        const refreshInterval = setInterval(fetchMetrics, 1000); // 每2秒刷新一次
+
+        // 手动刷新按钮
+        document.getElementById('refresh-btn').addEventListener('click', () => {
+            fetchMetrics();
+            // 添加刷新动画
+            const refreshIcon = document.getElementById('refresh-btn').querySelector('i');
+            refreshIcon.classList.add('fa-spin');
+            setTimeout(() => refreshIcon.classList.remove('fa-spin'), 1000);
+        });
+    </script>
+</body>
+
+</html>
