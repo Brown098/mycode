@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>系统监控仪表盘</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen flex flex-col items-center justify-center">
+
+  <!-- 登录页面 -->
+  <div id="loginPage" class="flex flex-col items-center space-y-4">
+    <h1 class="text-3xl font-bold">系统监控登录</h1>
+    <input id="username" placeholder="用户名" class="p-2 rounded text-black w-64" />
+    <input id="password" type="password" placeholder="密码" class="p-2 rounded text-black w-64" />
+    <button id="loginBtn" class="bg-blue-500 hover:bg-blue-600 px-4 py-2 rounded">登录</button>
+    <p id="loginError" class="text-red-400 hidden">用户名或密码错误</p>
+  </div>
+
+  <!-- 主界面 -->
+  <div id="dashboard" class="hidden w-full max-w-6xl p-6 space-y-6">
+    <div class="flex justify-between items-center">
+      <h2 class="text-2xl font-semibold">系统实时状态</h2>
+      <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded">退出</button>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <p>CPU 使用率: <span id="cpuPercent" class="text-green-400">--%</span></p>
+        <p>频率: <span id="cpuFreq" class="text-yellow-400">-- MHz</span></p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <p>内存使用率: <span id="memPercent" class="text-cyan-400">--%</span></p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <p>磁盘使用率: <span id="diskPercent" class="text-blue-400">--%</span></p>
+      </div>
+      <div class="bg-gray-800 p-4 rounded shadow">
+        <p>上传: <span id="uploadSpeed" class="text-orange-400">-- KB/s</span></p>
+        <p>下载: <span id="downloadSpeed" class="text-pink-400">-- KB/s</span></p>
+      </div>
+    </div>
+
+    <div class="bg-gray-800 p-4 rounded shadow">
+      <canvas id="chart"></canvas>
+    </div>
+
+    <div id="output" class="bg-gray-800 p-4 rounded shadow h-40 overflow-y-auto text-sm"></div>
+  </div>
+
+  <script src="/static/js/main.js"></script>
+</body>
+</html>
