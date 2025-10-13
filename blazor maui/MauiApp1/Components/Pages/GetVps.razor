@@ -1,0 +1,88 @@
+﻿@page "/stats"
+@inject HttpClient Http
+@using System.Text.Json.Serialization;
+
+<h3>系统状态</h3>
+
+@if (stats == null)
+{
+    <p>加载中...</p>
+}
+else
+{
+    <ul>
+        <li>接收流量: @stats.BytesRecv</li>
+        <li>发送流量: @stats.BytesSent</li>
+        <li>CPU 频率: @stats.CpuFreq MHz</li>
+        <li>CPU 占用: @stats.CpuPercent %</li>
+        <li>磁盘使用: @stats.DiskPercent %</li>
+        <li>磁盘读速: @stats.DiskReadSpeed</li>
+        <li>磁盘写速: @stats.DiskWriteSpeed</li>
+        <li>下载速度: @stats.DownloadSpeed KB/s</li>
+        <li>上传速度: @stats.UploadSpeed KB/s</li>
+        <li>内存占用: @stats.MemoryPercent %</li>
+        <li>时间: @stats.Timestamp</li>
+    </ul>
+}
+
+@code {
+    public class SystemStats
+    {
+        [JsonPropertyName("bytes_recv")]
+        public long BytesRecv { get; set; }
+
+        [JsonPropertyName("bytes_sent")]
+        public long BytesSent { get; set; }
+
+        [JsonPropertyName("cpu_freq")]
+        public double CpuFreq { get; set; }
+
+        [JsonPropertyName("cpu_percent")]
+        public double CpuPercent { get; set; }
+
+        [JsonPropertyName("disk_percent")]
+        public double DiskPercent { get; set; }
+
+        [JsonPropertyName("disk_read_speed")]
+        public double DiskReadSpeed { get; set; }
+
+        [JsonPropertyName("disk_write_speed")]
+        public double DiskWriteSpeed { get; set; }
+
+        [JsonPropertyName("download_speed")]
+        public double DownloadSpeed { get; set; }
+
+        [JsonPropertyName("memory_percent")]
+        public double MemoryPercent { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public string Timestamp { get; set; } = "";
+
+        [JsonPropertyName("upload_speed")]
+        public double UploadSpeed { get; set; }
+    }
+    private SystemStats? stats;
+
+    private bool isRunning = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 启动循环
+        while (isRunning)
+        {
+            try
+            {
+                stats = await Http.GetFromJsonAsync<SystemStats>("");
+                StateHasChanged(); // 刷新 UI
+            }
+            catch
+            {
+                // 可以记录错误或忽略
+            }
+
+            await Task.Delay(1000); // 1 秒更新一次
+        }
+
+    }
+    
+}

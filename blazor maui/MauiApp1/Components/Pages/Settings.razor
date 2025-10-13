@@ -1,0 +1,14 @@
+﻿@page "/setting"
+@using MauiApp1.Service
+@inject AppState State
+
+<h3>设置 ⚙️</h3>
+
+<button class="btn btn-secondary" @onclick="ToggleTheme">
+    切换主题（当前: @(State.IsDarkTheme ? "深色" : "浅色")）
+</button>
+
+@code {
+    void ToggleTheme() => State.ToggleTheme();
+}
+

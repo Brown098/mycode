@@ -1,0 +1,79 @@
+﻿@page "/todo"
+@using MauiApp1.Service
+@using MauiApp1.Models
+@inject TodoRepository Repo
+
+<h3>持久化待办清单 📝</h3>
+
+<input @bind="newTitle" placeholder="输入任务..." class="form-control mb-2" />
+<button class="btn btn-primary mt-1" @onclick="AddTodo">添加</button>
+
+<ul class="list-group mt-3">
+    @foreach (var item in todos)
+    {
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <!-- 使用 checked + onchange 避免和 @bind 冲突 -->
+                <input type="checkbox"
+                       checked="@item.Done"
+                       @onchange="async (e) => await OnCheckChanged(e, item)"
+                       class="me-2" />
+
+                <span class="@(item.Done ? "text-muted text-decoration-line-through" : "")">@item.Title</span>
+            </div>
+            <button class="btn btn-sm btn-danger" @onclick="() => DeleteTodo(item)">删除</button>
+        </li>
+    }
+</ul>
+
+<!--父子组件通信-->
+<ul class="list-group mt-3">
+    @foreach (var item in todos)
+    {
+        <li class="list-group-item">
+            <TodoItemComponent Item="item" OnDelete="DeleteTodo" OnStatusChanged="UpdateTodo" />
+        </li>
+    }
+</ul>
+
+@code {
+    private string newTitle = "";
+    private List<TodoItem> todos = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        todos = await Repo.GetAllAsync();
+    }
+
+    async Task AddTodo()
+    {
+        if (!string.IsNullOrWhiteSpace(newTitle))
+        {
+            var item = new TodoItem { Title = newTitle };
+            await Repo.AddAsync(item);
+            todos.Add(item);
+            newTitle = "";
+        }
+    }
+
+    // 点击 checkbox 时调用 —— 手动更新 item.Done 然后持久化
+    async Task OnCheckChanged(ChangeEventArgs e, TodoItem item)
+    {
+        // ChangeEventArgs.Value 对 checkbox 通常是 bool，但做一次保险转换
+        item.Done = Convert.ToBoolean(e.Value);
+        await Repo.UpdateAsync(item);
+        // 如果需要触发 UI 刷新（一般已自动刷新），可调用 StateHasChanged();
+    }
+
+    async Task UpdateTodo(TodoItem item)
+    {
+        // 如果你还保留这个方法供其他地方使用，保持不变
+        await Repo.UpdateAsync(item);
+    }
+
+    async Task DeleteTodo(TodoItem item)
+    {
+        await Repo.DeleteAsync(item);
+        todos.Remove(item);
+    }
+}
