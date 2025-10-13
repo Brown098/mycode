@@ -1,0 +1,9 @@
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"       
+xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"       
+xmlns:pages="clr-namespace:ToDoApp.Components.Pages"       
+x:Class="ToDoApp.AppShell">
+    <TabBar>
+        <ShellContent Title="Tasks" ContentTemplate="{DataTemplate pages:MainPage}" />
+       
+    </TabBar>
+</Shell>

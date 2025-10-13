@@ -1,0 +1,307 @@
+﻿@page "/todo"
+@using Microsoft.AspNetCore.SignalR.Client
+@using ToDoApp.Models
+@inject ToDoApp.ViewModels.TodoViewModel VM
+@inject ToDoApp.Services.ApiSyncService ApiSync
+@inject ToDoApp.Services.NotificationService Notifier
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+@implements IAsyncDisposable
+
+<h3>📋 Todo 列表</h3>
+
+<div class="d-flex gap-2 mb-3">
+    <input class="form-control" placeholder="输入任务..." @bind="VM.newTask" @onkeydown="OnEnterAdd" />
+    <button class="btn btn-primary" @onclick="AddTask">添加</button>
+    <button class="btn btn-outline-secondary" @onclick="SyncToServer">同步</button>
+</div>
+
+@if (isLoading)
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status"></div>
+        <div>加载中...</div>
+    </div>
+}
+else if (VM.Items == null || !VM.Items.Any())
+{
+    <p class="text-muted">暂无任务，快去添加你的第一个任务吧！</p>
+}
+else
+{
+    <ul class="list-group">
+        @foreach (var item in VM.Items)
+        {
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-2">
+                    <input type="checkbox" checked="@item.IsCompleted" @onchange="() => ToggleComplete(item)" />
+                    <div class="todo-title">
+                        <span class="@(item.IsCompleted ? "completed" : "")">@item.Title</span>
+                        <small class="text-muted d-block">@item.CreatedAt.ToLocalTime().ToString("g")</small>
+                    </div>
+                </div>
+
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-secondary" @onclick="() => EditItem(item)">编辑</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteItem(item)">删除</button>
+                </div>
+            </li>
+        }
+    </ul>
+}
+
+<style>
+    .completed {
+        text-decoration: line-through;
+        color: gray;
+    }
+
+    .todo-title { min-width: 220px; }
+    .d-flex.gap-2 { gap: .5rem; }
+    .btn-group button { margin-left: 0.25rem; }
+</style>
+
+@code {
+    private HubConnection? hubConnection;
+    private bool isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // load items from ViewModel (ViewModel's ctor already loads but ensure latest)
+        isLoading = true;
+        try
+        {
+            // VM already loads, but ensure await any pending loads (ViewModel's ctor uses _ = LoadAsync())
+            await Task.Delay(50);
+            isLoading = false;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+
+        // 建立 SignalR 连接（替换为你的服务端 Hub 地址）
+        // 如果你的服务端在远程请替换为绝对地址，例如: "https://api.example.com/todoHub"
+        var hubUrl = GetHubUrl(); // helper below
+
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(hubUrl)
+            .WithAutomaticReconnect()
+            .Build();
+
+        // 处理服务端广播事件 —— 名称与服务端 Hub 保持一致
+        hubConnection.On<string>("TodoAdded", async (message) =>
+        {
+            // 有新任务时，刷新列表并弹窗提示
+            await RefreshItemsSafe();
+            await ShowNotificationAsync("新任务提示", message);
+        });
+
+        hubConnection.On<string>("TodoUpdated", async (message) =>
+        {
+            await RefreshItemsSafe();
+            await ShowNotificationAsync("任务更新", message);
+        });
+
+        hubConnection.On<string>("TodoDeleted", async (message) =>
+        {
+            await RefreshItemsSafe();
+            await ShowNotificationAsync("任务删除", message);
+        });
+
+        try
+        {
+            await hubConnection.StartAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"SignalR start failed: {ex.Message}");
+            // 可提示用户：无法连接实时服务
+        }
+    }
+
+    private string GetHubUrl()
+    {
+        // 默认尝试与当前应用的 baseUri 拼接 /todoHub（适用于与前端同域的后端）
+        // 如果后端为独立服务，请在此返回绝对 URL。
+        var baseUri = Navigation.BaseUri;
+        // 如果 BaseUri 是 file:// 或 app://，通常无法直接用于 SignalR，替换为你的后端地址（示例占位）
+        if (baseUri.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            return $"{baseUri.TrimEnd('/')}/todoHub";
+        // fallback: 请把这里替换为你的实际服务器地址
+        return "https://your-api-url.com/todoHub";
+    }
+
+    private async Task AddTask()
+    {
+        await VM.AddAsync(); // ViewModel 内部会通知并保存
+        // 通知服务端（可选）—— 如果使用 SignalR 并且后端需要通知其他客户端
+        if (hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await hubConnection.SendAsync("NotifyTodoAdded", VM.Items.FirstOrDefault()?.Title ?? "新任务");
+            }
+            catch { /* 忽略发送异常 */ }
+        }
+    }
+
+    private async Task OnEnterAdd(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            await AddTask();
+        }
+    }
+
+    private async Task ToggleComplete(TodoItem item)
+    {
+        await VM.ToggleCompleteAsync(item);
+        // 可选择向后端通知
+        if (hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await hubConnection.SendAsync("NotifyTodoUpdated", item.Id);
+            }
+            catch { }
+        }
+    }
+
+    private async Task DeleteItem(TodoItem item)
+    {
+        var confirm = await ConfirmAsync("删除确认", $"确定删除 “{item.Title}” 吗？");
+        if (!confirm) return;
+
+        await VM.DeleteAsync(item);
+        if (hubConnection?.State == HubConnectionState.Connected)
+        {
+            try
+            {
+                await hubConnection.SendAsync("NotifyTodoDeleted", item.Id);
+            }
+            catch { }
+        }
+    }
+
+    private async Task EditItem(TodoItem item)
+    {
+        // 简单内联编辑示例：使用 prompt（JS）或跳转到编辑页（这里用 prompt 回退）
+        if (IsNativePlatform())
+        {
+            // MAUI 没有内置 prompt，使用 JS prompt 回退到浏览器弹窗（仅在 WebView 情况）
+            var newTitle = await JS.InvokeAsync<string>("prompt", $"编辑任务：", item.Title);
+            if (!string.IsNullOrWhiteSpace(newTitle) && newTitle != item.Title)
+            {
+                item.Title = newTitle;
+                await VM.ToggleCompleteAsync(item); // 复用更新方法（或调用专用 Update）
+                await VM.AddAsync(); // 如果你的 ViewModel 有专门 Update 方法，请调用 Update
+            }
+        }
+        else
+        {
+            // 在 Web 中使用 prompt
+            var newTitle = await JS.InvokeAsync<string>("prompt", $"编辑任务：", item.Title);
+            if (!string.IsNullOrWhiteSpace(newTitle) && newTitle != item.Title)
+            {
+                item.Title = newTitle;
+                await VM.ToggleCompleteAsync(item);
+            }
+        }
+    }
+
+    private async Task SyncToServer()
+    {
+        try
+        {
+            var list = VM.Items.ToList();
+            await ApiSync.SyncAsync(list);
+            await ShowNotificationAsync("同步成功", $"已同步 {list.Count} 条任务到云端");
+        }
+        catch (Exception ex)
+        {
+            await ShowNotificationAsync("同步失败", ex.Message);
+        }
+    }
+
+    private async Task RefreshItemsSafe()
+    {
+        // ViewModel 本身管理 Items 的加载；如果需要强制刷新可以调用其加载逻辑
+        // 这里小等待以确保 DB 写入已完成（简单防护）
+        await Task.Delay(100);
+        // 如果 ViewModel 暴露加载方法，可在此调用；否则我们可以简单地重新构建集合
+        // 触发 UI 刷新
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task ShowNotificationAsync(string title, string message)
+    {
+        // 优先使用 MAUI 本地通知（非阻塞），同时在前端显示 alert 作为回退
+        try
+        {
+            // 本地通知
+            Notifier?.Show(title, message);
+
+            // 额外显示弹窗（根据平台）
+            if (IsNativePlatform())
+            {
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (App.Current?.MainPage != null)
+                        await App.Current.MainPage.DisplayAlert(title, message, "确定");
+                });
+            }
+            else
+            {
+                await JS.InvokeVoidAsync("alert", $"{title}: {message}");
+            }
+        }
+        catch
+        {
+            // 忽略通知错误
+        }
+    }
+
+    private bool IsNativePlatform()
+    {
+#if ANDROID || IOS || MACCATALYST || WINDOWS
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    private async Task<bool> ConfirmAsync(string title, string message)
+    {
+        if (IsNativePlatform())
+        {
+            var tcs = new TaskCompletionSource<bool>();
+            await MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                var result = await App.Current.MainPage.DisplayAlert(title, message, "确定", "取消");
+                tcs.SetResult(result);
+            });
+            return await tcs.Task;
+        }
+        else
+        {
+            // 在浏览器中用 confirm
+            return await JS.InvokeAsync<bool>("confirm", $"{title}\n\n{message}");
+        }
+    }
+
+    // 清理 SignalR 连接
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            try
+            {
+                await hubConnection.StopAsync();
+                await hubConnection.DisposeAsync();
+            }
+            catch { /* 忽略 */ }
+        }
+    }
+}
