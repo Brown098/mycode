@@ -1,0 +1,39 @@
+﻿@page "/todoplus"
+@using GetGpsApp.Models;
+@using GetGpsApp.Services
+@inject TodoService TodoService
+<h3>待办事项(依赖注入版切换页面保存数据)</h3>
+
+
+<input @bind="newTitle" placeholder="任务..." class="form-control mb-2" />
+<button class="btn btn-primary" @onclick="AddTodo">添加</button>
+
+<ul class="list-group mt-3">
+    @foreach (var item in TodoService.Items)
+    {
+        <li class="list-group-item">
+            <input type="checkbox" @bind="item.Done" class="me-2" />
+            <span class="@(item.Done ? "text-muted text-decoration-line-through" : "")">@item.Title</span>
+            <button class="btn btn-sm btn-danger float-end" @onclick="() => Deletetodo(item)">删除</button>
+        </li>
+    }
+</ul>
+
+
+@code {
+    private string newTitle = "";
+  
+    void AddTodo()
+    {
+        if (!string.IsNullOrWhiteSpace(newTitle))
+        {
+            TodoService.Add(newTitle);
+            newTitle = "";
+        }
+    }
+    void Deletetodo(TodoItem item)
+    {
+        TodoService.Remove(item);
+    }
+
+}

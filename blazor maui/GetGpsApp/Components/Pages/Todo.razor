@@ -1,0 +1,37 @@
+﻿@page "/todo"
+@using GetGpsApp.Models;
+<h3>待办事项</h3>
+<div class="mb-2">
+    <input class="from-control" placeholder="输入任务" @bind="newTitle"/>
+    <button class="btn btn-primary mt-2" @onclick="AddTodo">添加</button>
+</div>
+
+<ul class="list-group mt-3">
+    @foreach(var item in todos)
+    {
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <input type="checkbox" @bind="item.Done" class="me-2"/>
+                <span class="@(item.Done ? "text-muted text-decoration-line-through" : "")">@item.Title</span>
+            </div>
+            <button class="btn btn-sm btn-danger" @onclick="() => Deletetodo(item)">删除</button>
+        </li>
+    }
+</ul>
+
+@code {
+    private string newTitle = "";
+    private List<TodoItem> todos = new();
+    void AddTodo()
+    {
+        if (!string.IsNullOrWhiteSpace(newTitle))
+        {
+            todos.Add(new TodoItem { Title = newTitle });
+            newTitle = "";
+        }
+    }
+    void Deletetodo(TodoItem item)
+    {
+        todos.Remove(item);
+    }
+}

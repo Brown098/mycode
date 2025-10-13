@@ -1,0 +1,111 @@
+﻿@page "/gps"
+@using Microsoft.Maui.Devices.Sensors
+@using Microsoft.Maui.Media
+
+<h3>GPS 定位示例</h3>
+
+<button class="btn btn-primary" @onclick="ToggleTracking">
+    @(isTracking ? "🛑 停止定位" : "📍 开始实时定位")
+</button>
+
+@if (location != null)
+{
+    <ul>
+        <li>纬度：@location.Latitude</li>
+        <li>经度：@location.Longitude</li>
+        <li>海拔：@location.Altitude</li>
+        <li>速度：@location.Speed</li>
+        <li>方向：@location.Course</li>
+        <li>时间：@location.Timestamp</li>
+    </ul>
+    <p>
+        🌏 <a target="_blank" href="https://www.google.com/maps?q=@location.Latitude,@location.Longitude">
+            在地图中查看
+        </a>
+    </p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p style="color:red">错误: @error</p>
+}
+
+<h3>拍照</h3>
+<button class="btn btn-success" @onclick="TakePhoto">📸 拍照</button>
+@if (!string.IsNullOrEmpty(photoPath))
+{
+    <p>照片路径: @photoPath</p>
+    <img src="@photoPath" width="250" style="border-radius:10px" />
+}
+
+@code {
+    Location? location;
+    string? error;
+    string? photoPath;
+    bool isTracking = false;
+    CancellationTokenSource? cts; //取消异步程序
+
+    async Task ToggleTracking()
+    {
+        if (isTracking)
+        {
+            // 停止定位
+            cts?.Cancel();
+            isTracking = false;
+        }
+        else
+        {
+            // 启动定位
+            isTracking = true;
+            cts = new CancellationTokenSource();
+            await TrackLocationAsync(cts.Token);
+        }
+    }
+
+    async Task TrackLocationAsync(CancellationToken token)
+    {
+        while (!token.IsCancellationRequested)
+        {
+            try
+            {
+                var request = new GeolocationRequest(GeolocationAccuracy.Best, TimeSpan.FromSeconds(10));
+                location = await Geolocation.Default.GetLocationAsync(request, token);
+                if (location == null)
+                    error = "无法获取位置";
+                else
+                    error = null;
+
+                // 通知 UI 刷新
+                await InvokeAsync(StateHasChanged);
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+            }
+
+            // 间隔 3 秒更新一次
+            await Task.Delay(1000, token);
+        }
+    }
+
+    public async Task TakePhoto()
+    {
+        try
+        {
+            var photo = await MediaPicker.Default.CapturePhotoAsync();
+
+            if (photo != null)
+            {
+                photoPath = photo.FullPath;
+                await Application.Current.Windows[0].Page.DisplayAlertAsync("拍照成功", $"文件路径: {photo.FullPath}", "确定");
+            }
+        }
+        catch (PermissionException)
+        {
+            await Application.Current.Windows[0].Page.DisplayAlertAsync("权限提示", "请在系统设置中允许相机权限", "确定");
+        }
+        catch (Exception ex)
+        {
+            await Application.Current.Windows[0].Page.DisplayAlertAsync("错误", ex.Message, "关闭");
+        }
+    }
+}

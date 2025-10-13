@@ -1,0 +1,70 @@
+﻿@page "/counter"
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @currentCount</p>
+<p role="status">Count: @count</p>
+
+<div class="mb-2">
+    <input @bind="count" class="form-control" placeholder="每次要选择增加的数" />
+</div>
+
+<div class="d-flex gap-2">
+    <button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+    <button class="btn btn-primary" @onclick="DicrementCount">减减</button>
+</div>
+
+
+<!--高级计数器-->
+
+<input @bind="title" placeholder="输入标题" class="from-control mb-2"/>
+<button class="btn btn-success" @onclick="AddRecords">添加记录</button>
+<button class="btn btn-success" @onclick="ClearRecords">清空记录</button>
+
+
+    @foreach(var item in records)
+    {
+        
+        <p>
+            @item
+            <button @onclick="() => RemoveRecords(item)">删除</button>
+        </p>
+        
+    }
+
+
+
+@code {
+    private int currentCount = 0;
+    private int count;
+    private void IncrementCount()
+    {
+        currentCount +=count;
+    }
+    private void DicrementCount()
+    {
+        currentCount -=count;
+    }
+
+    //高级计数器
+    private string title = "";
+    private List<string> records = new();
+    protected override void OnInitialized()
+    {
+        Console.WriteLine("初始化完成");
+    }
+    void AddRecords()
+    {
+        records.Add($"{DateTime.Now:T}-{title}");
+        title = "";
+    }
+    void RemoveRecords(string record)
+    {
+        records.Remove(record);
+    }
+
+    void ClearRecords()
+    {
+        records.Clear();
+    }
+}
